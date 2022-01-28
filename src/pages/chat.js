@@ -1,20 +1,39 @@
 import { Box, Text, TextField, Image, Button } from "@skynexui/components";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import appConfig from "../../config.json";
+import { supabaseClient } from "../services/supabase";
 
 export default function ChatPage() {
   const [message, setMessage] = useState("");
   const [messageList, setMessageList] = useState([]);
 
-  function handleKeyPress(event) {
+  useEffect(() => {
+    supabaseClient
+      .from("mensagens")
+      .select("*")
+      .order('id', { ascending: false })
+      .then(({ data }) => {
+        setMessageList(data);
+      });
+  }, []);
+
+  function handleMessage(event) {
     if (event.key === "Enter") {
       const chatMessage = {
-        id: messageList.length + 1,
-        from: "deivaotv",
-        text: message,
+        de: "deivaotv",
+        texto: message,
       };
+
+      supabaseClient.from("mensagens")
+        .insert([chatMessage])
+        .then(({data}) => {
+          setMessageList([
+            data[0],
+            ...messageList
+          ]);
+        });
+
       event.preventDefault();
-      setMessageList([chatMessage, ...messageList]);
       setMessage("");
     }
   }
@@ -72,7 +91,7 @@ export default function ChatPage() {
           >
             <TextField
               value={message}
-              onKeyPress={(event) => handleKeyPress(event)}
+              onKeyPress={(event) => handleMessage(event)}
               onChange={(event) => setMessage(event.target.value)}
               placeholder="Insira sua mensagem aqui..."
               type="textarea"
@@ -157,9 +176,9 @@ function MessageList({ messages }) {
                 display: "inline-block",
                 marginRight: "8px",
               }}
-              src={`https://github.com/${message.from}.png`}
+              src={`https://github.com/${message.de}.png`}
             />
-            <Text tag="strong">{message.from}</Text>
+            <Text tag="strong">{message.de}</Text>
             <Text
               styleSheet={{
                 fontSize: "10px",
@@ -171,7 +190,7 @@ function MessageList({ messages }) {
               {new Date().toLocaleDateString()}
             </Text>
           </Box>
-          {message.text}
+          {message.texto}
         </Text>
       ))}
     </Box>
