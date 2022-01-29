@@ -1,9 +1,26 @@
-import { Box, Text, TextField, Image, Button } from "@skynexui/components";
 import React, { useEffect, useState } from "react";
 import appConfig from "../../config.json";
+
+import { ButtonSendSticker } from "../components/ButtonSendSticker";
+
+import { Box, Text, TextField, Image, Button } from "@skynexui/components";
+
+import { useRouter } from "next/router";
 import { supabaseClient } from "../services/supabase";
 
+function listenMessageRealTime(insertMessage) {
+  return supabaseClient
+    .from("mensagens")
+    .on("INSERT", (response) => {
+      insertMessage(response.new);
+      console.log("houve uma nova mensagem", response.new);
+    })
+    .subscribe();
+}
+
 export default function ChatPage() {
+  const router = useRouter();
+  const userLoggedIn = router.query.username;
   const [message, setMessage] = useState("");
   const [messageList, setMessageList] = useState([]);
 
@@ -11,35 +28,31 @@ export default function ChatPage() {
     supabaseClient
       .from("mensagens")
       .select("*")
-      .order('id', { ascending: false })
+      .order("id", { ascending: false })
       .then(({ data }) => {
         setMessageList(data);
       });
+
+    listenMessageRealTime((newMessage) => {
+      setMessageList((actualValue) => {
+        return [newMessage, ...actualValue];
+      });
+    });
   }, []);
 
-  function handleMessage(event) {
-    if (event.key === "Enter") {
-      const chatMessage = {
-        de: "deivaotv",
-        texto: message,
-      };
+  function handleMessage(newMessage) {
+    const chatMessage = {
+      de: userLoggedIn,
+      texto: newMessage,
+    };
 
-      supabaseClient.from("mensagens")
-        .insert([chatMessage])
-        .then(({data}) => {
-          setMessageList([
-            data[0],
-            ...messageList
-          ]);
-        });
-
-      event.preventDefault();
-      setMessage("");
-    }
+    supabaseClient
+      .from("mensagens")
+      .insert([chatMessage])
+      .then(({ data }) => {});
+    setMessage("");
   }
-  // Sua lógica vai aqui
 
-  // ./Sua lógica vai aqui
   return (
     <Box
       styleSheet={{
@@ -91,7 +104,11 @@ export default function ChatPage() {
           >
             <TextField
               value={message}
-              onKeyPress={(event) => handleMessage(event)}
+              onKeyPress={(event) => {
+                if (event.key === "Enter") {
+                  handleMessage(message);
+                }
+              }}
               onChange={(event) => setMessage(event.target.value)}
               placeholder="Insira sua mensagem aqui..."
               type="textarea"
@@ -104,6 +121,11 @@ export default function ChatPage() {
                 backgroundColor: appConfig.theme.colors.neutrals[800],
                 marginRight: "12px",
                 color: appConfig.theme.colors.neutrals[200],
+              }}
+            />
+            <ButtonSendSticker
+              onStickerClick={(sticker) => {
+                handleMessage(`:sticker: ${sticker}`);
               }}
             />
           </Box>
@@ -190,7 +212,11 @@ function MessageList({ messages }) {
               {new Date().toLocaleDateString()}
             </Text>
           </Box>
-          {message.texto}
+          {message.texto.startsWith(":sticker:") ? (
+            <Image src={message.texto.replace(":sticker:", "")} />
+          ) : (
+            message.texto
+          )}
         </Text>
       ))}
     </Box>
