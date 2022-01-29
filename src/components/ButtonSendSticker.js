@@ -13,12 +13,13 @@ export function ButtonSendSticker(props) {
     >
       <Button
         styleSheet={{
-          borderRadius: '50%',
+          margin: '2px',
+          borderRadius: '10%',
           padding: '0 3px 0 0',
           minWidth: '50px',
-          minHeight: '50px',
+          minHeight: '45px',
           fontSize: '20px',
-          marginBottom: '8px',
+          marginBottom: '10px',
           lineHeight: '0',
           display: 'flex',
           alignItems: 'center',
