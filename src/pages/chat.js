@@ -2,8 +2,9 @@ import React, { useEffect, useState } from "react";
 import appConfig from "../../config.json";
 
 import { ButtonSendSticker } from "../components/ButtonSendSticker";
+import { Header } from "../components/Header";
 
-import { Box, Text, TextField, Image, Button } from "@skynexui/components";
+import { Box, TextField, Button, Text, Image } from "@skynexui/components";
 
 import { useRouter } from "next/router";
 import { supabaseClient } from "../services/supabase";
@@ -12,7 +13,10 @@ function listenMessageRealTime(insertMessage) {
   return supabaseClient
     .from("mensagens")
     .on("INSERT", (response) => {
-      insertMessage(response.new);
+      insertMessage(response.new, "INSERT");
+    })
+    .on("DELETE", (response) => {
+      insertMessage(response.old, "DELETE");
     })
     .subscribe();
 }
@@ -32,10 +36,19 @@ export default function ChatPage() {
         setMessageList(data);
       });
 
-    listenMessageRealTime((newMessage) => {
-      setMessageList((actualValue) => {
-        return [newMessage, ...actualValue];
-      });
+    listenMessageRealTime((newMessage, type) => {
+      if (type === "DELETE") {
+        setMessageList((actualValue) => {
+          const filtered = actualValue.filter(
+            (value) => value.id !== newMessage.id
+          );
+          return [...filtered];
+        });
+      } else {
+        setMessageList((actualValue) => {
+          return [newMessage, ...actualValue];
+        });
+      }
     });
   }, []);
 
@@ -93,7 +106,7 @@ export default function ChatPage() {
             padding: "16px",
           }}
         >
-          <MessageList messages={messageList} />
+          <MessageList messages={messageList} user={userLoggedIn} />
           <Box
             as="form"
             styleSheet={{
@@ -139,7 +152,10 @@ export default function ChatPage() {
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                backgroundColor: message !== "" ? appConfig.theme.colors.primary[400] : appConfig.theme.colors.neutrals[400],
+                backgroundColor:
+                  message !== ""
+                    ? appConfig.theme.colors.primary[400]
+                    : appConfig.theme.colors.neutrals[400],
                 hover: {
                   filter: "grayscale(5)",
                 },
@@ -158,36 +174,19 @@ export default function ChatPage() {
   );
 }
 
-function Header() {
-  return (
-    <>
-      <Box
-        styleSheet={{
-          width: "100%",
-          marginBottom: "16px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-        }}
-      >
-        <Text variant="heading5">Chat</Text>
-        <Button
-          variant="tertiary"
-          colorVariant="neutral"
-          label="Logout"
-          href="/"
-        />
-      </Box>
-    </>
-  );
-}
-
-function MessageList({ messages }) {
+function MessageList({ messages, user }) {
+  function deleteMessage(message) {
+    supabaseClient
+      .from("mensagens")
+      .delete()
+      .match({ id: message.id })
+      .then(({ data }) => {});
+  }
   return (
     <Box
       tag="ul"
       styleSheet={{
-        overflow: "scroll",
+        overflowY: "scroll",
         display: "flex",
         flexDirection: "column-reverse",
         flex: 1,
@@ -211,29 +210,47 @@ function MessageList({ messages }) {
           <Box
             styleSheet={{
               marginBottom: "8px",
+              display: "flex",
+              justifyContent: "space-between",
             }}
           >
-            <Image
-              styleSheet={{
-                width: "20px",
-                height: "20px",
-                borderRadius: "50%",
-                display: "inline-block",
-                marginRight: "8px",
-              }}
-              src={`https://github.com/${message.de}.png`}
-            />
-            <Text tag="strong">{message.de}</Text>
-            <Text
-              styleSheet={{
-                fontSize: "10px",
-                marginLeft: "8px",
-                color: appConfig.theme.colors.neutrals[300],
-              }}
-              tag="span"
-            >
-              {new Date().toLocaleDateString()}
-            </Text>
+            <Box>
+              <Image
+                styleSheet={{
+                  width: "20px",
+                  height: "20px",
+                  borderRadius: "50%",
+                  display: "inline-block",
+                  marginRight: "8px",
+                }}
+                src={`https://github.com/${message.de}.png`}
+              />
+              <Text tag="strong">{message.de}</Text>
+              <Text
+                styleSheet={{
+                  fontSize: "10px",
+                  marginLeft: "8px",
+                  color: appConfig.theme.colors.neutrals[300],
+                }}
+                tag="span"
+              >
+                {new Date().toLocaleDateString()}
+              </Text>
+            </Box>
+            {message.de === user && (
+              <Box>
+                <Button
+                  buttonColors={{
+                    contrastColor: "#FFFFFF",
+                    mainColor: "#29333D",
+                    mainColorLight: "#212931",
+                    mainColorStrong: "#29333D",
+                  }}
+                  label="x"
+                  onClick={() => deleteMessage(message)}
+                />
+              </Box>
+            )}
           </Box>
           {message.texto.startsWith(":sticker:") ? (
             <Image src={message.texto.replace(":sticker:", "")} />
